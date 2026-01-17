@@ -1,0 +1,16 @@
+FROM node:16-alpine
+
+WORKDIR /voting_app_frontend
+
+RUN chown -R node:node /voting_app_frontend
+
+COPY --chown=node:node . .
+
+USER node
+
+RUN npm install
+
+EXPOSE 3000
+
+ENTRYPOINT ["npm"]
+CMD ["start"]

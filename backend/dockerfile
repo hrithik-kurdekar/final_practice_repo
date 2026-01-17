@@ -1,0 +1,38 @@
+# ---Step 1: Build Dedpencies ---
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+ENV PYTHONBUFFERED=1 \
+    PYTHONWRITEBYTECODE=1
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# ---Step 2: Containarize App ---
+FROM python:3.11-slim
+
+ARG APP_HOME="/voting_app_backend"
+
+WORKDIR $APP_HOME
+
+ENV PYTHONBUFFERED=1 \
+    PYTHONWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup $APP_HOME
+
+COPY --from=builder --chown=appuser:appgroup /opt/venv /opt/venv
+COPY --chown=appuser:appgroup ./app ./app
+
+USER appuser
+
+EXPOSE 8000
+
+ENTRYPOINT ["uvicorn"]
+CMD ["app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
