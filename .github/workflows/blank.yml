@@ -1,0 +1,115 @@
+name: DevSecOps CI CD Pipeline for Voting App
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  code_scan:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Reports Repo
+        run: mkdir -p reports
+
+      - name: Pylint Code Scan
+        run: |
+          docker run \
+          --rm \
+          -v $(pwd):/workspace \
+          cytopia/pylint /workspace/backend/app \
+          | tee reports/pylint_report.txt \
+          || true
+
+      - name: Flake8 Code Scan
+        run: |
+          docker run \
+          --rm \
+          -v $(pwd):/workspace \
+          alpine/flake8 /workspace/backend/app \
+          | tee reports/flake8_report.txt \
+          || true
+
+      - name: Trivy Code Scan
+        run: |
+          docker run \
+          --rm \
+          -v $(pwd):/workspace \
+          aquasec/trivy fs --severity HIGH,CRITICAL --no-progress --output reports/trivy_report.txt /workspace \
+          || true
+
+      - name: Uploading Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Code Scan Reports
+          path: reports
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf reports
+
+  image_scan:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Reports Repo
+        run: mkdir -p reports
+
+      - name: Building Images
+        run: docker compose build
+
+      - name: Running Trivy Scan on Built Images
+        run: |
+          IMAGES="postgres:16-alpine voting_app_backend voting_app_frontend nginx:stable-alpine"
+          for img in $IMAGES; do
+            SAFE_NAME=$(echo "$img" | tr ':' '_')
+            echo "------- Scanning Image: "$img --------"
+            docker run \
+            --rm \
+            -v $(pwd):/workspace \
+            -v /var/run/dokcer.sock:/var/run/dokcer.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL --no-progress --output reports/"$SAFE_NAME".txt "$img" \
+            || true
+            echo "--------------------------------------"
+          done
+
+      - name: Uploading Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Image Scan Reports
+          path: reports
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf reports
+
+  deploy_app:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Deploying Application
+        run: |
+          docker compose down -v
+          docker compose up -d --no-build
+        
+        
+        
+          
+        
+          
