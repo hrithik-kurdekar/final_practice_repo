@@ -42,7 +42,8 @@ jobs:
           docker run \
           --rm \
           -v $(pwd):/workspace \
-          aquasec/trivy fs --severity HIGH,CRITICAL --no-progress --output reports/trivy_report.txt /workspace \
+          -v $(pwd)/reports:/reports \
+          aquasec/trivy fs --severity HIGH,CRITICAL --no-progress --output /reports/trivy_report.txt /workspace \
           || true
 
       - name: Uploading Reports
@@ -77,12 +78,13 @@ jobs:
           IMAGES="postgres:16-alpine voting_app_backend voting_app_frontend nginx:stable-alpine"
           for img in $IMAGES; do
             SAFE_NAME=$(echo "$img" | tr ':' '_')
-            echo "------- Scanning Image: "$img --------"
+            echo "------- Scanning Image: $img --------"
             docker run \
             --rm \
             -v $(pwd):/workspace \
-            -v /var/run/dokcer.sock:/var/run/dokcer.sock \
-            aquasec/trivy image --severity HIGH,CRITICAL --no-progress --output reports/"$SAFE_NAME".txt "$img" \
+            -v $(pwd)/reports:/reports \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL --no-progress --output /reports/"$SAFE_NAME".txt "$img" \
             || true
             echo "--------------------------------------"
           done
