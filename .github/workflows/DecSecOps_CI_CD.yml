@@ -58,6 +58,7 @@ jobs:
 
   image_scan:
     runs-on: self-hosted
+    needs: code_scan
     defaults:
       run:
         shell: bash
@@ -99,6 +100,7 @@ jobs:
 
   deploy_app:
     runs-on: self-hosted
+    needs: image_scan
     defaults:
       run:
         shell: bash
